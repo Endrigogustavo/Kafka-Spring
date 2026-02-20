@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <springProperty scope="context" name="lokiUrl"    source="logging.loki.url"   defaultValue="http://localhost:3100/loki/api/v1/push"/>
+    <springProperty scope="context" name="appName"    source="spring.application.name" defaultValue="kafka"/>
+    <springProperty scope="context" name="appEnv"     source="APP_ENV"            defaultValue="local"/>
+
+    <!-- Console (desenvolvimento local) -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [traceId=%X{traceId}] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Loki (centralização de logs) -->
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <!-- Labels indexadas no Loki para queries no Grafana -->
+        <labels>app=${appName},ambiente=${appEnv},host=${HOSTNAME:-local},level=%level</labels>
+        <message>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [traceId=%X{traceId}] %-5level %logger{36} - %msg%n</pattern>
+        </message>
+        <http>
+            <url>${lokiUrl}</url>
+            <requestTimeoutMs>5000</requestTimeoutMs>
+            <sender class="com.github.loki4j.logback.JavaHttpSender"/>
+        </http>
+        <batch>
+            <maxItems>100</maxItems>
+            <timeoutMs>5000</timeoutMs>
+        </batch>
+    </appender>
+
+    <!-- Root logger -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="LOKI"/>
+    </root>
+
+    <!-- Loggers específicos da aplicação -->
+    <logger name="com.integracao.kafka" level="DEBUG" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="LOKI"/>
+    </logger>
+
+    <logger name="org.apache.kafka"        level="WARN"/>
+    <logger name="org.springframework.kafka" level="INFO"/>
+
+</configuration>

@@ -1,0 +1,151 @@
+# 1) REINICIAR TUDO (Docker + Java)
+$ports = 8083,8085,8090; foreach($port in $ports){ $procId = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -First 1; if($procId){ Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue } }; docker compose down --remove-orphans; docker compose up -d; Start-Sleep -Seconds 5; .\mvnw spring-boot:run -DskipTests
+
+# 2) RODAR SÓ JAVA (SEM DOCKER)
+$procId = Get-NetTCPConnection -LocalPort 8083 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -First 1; if($procId){ Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue }; .\mvnw spring-boot:run -DskipTests
+
+# 3) DESLIGAR TUDO
+$ports = 8083,8085,8090; foreach($port in $ports){ $procId = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -First 1; if($procId){ Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue } }; docker compose down --remove-orphans
+
+# 4) MAPEAR SERVIÇOS (DOCKER)
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+# 5) BACKEND ESTÁ NO AR?
+try { (Invoke-WebRequest "http://localhost:8083/api/ping" -UseBasicParsing -TimeoutSec 5).Content } catch { $_.Exception.Message }
+
+# 6) PROMETHEUS ESTÁ FUNCIONANDO?
+try { (Invoke-WebRequest "http://localhost:9090/-/ready" -UseBasicParsing -TimeoutSec 5).StatusCode } catch { $_.Exception.Message }
+try { (Invoke-RestMethod -Uri "http://localhost:9090/api/v1/targets" -Method Get).data.activeTargets | Select-Object health,scrapeUrl,@{N='job';E={$_.labels.job}} | Format-Table -AutoSize | Out-String } catch { $_.Exception.Message }
+try { (Invoke-RestMethod -Uri "http://localhost:9090/api/v1/query?query=up{job=\"kafka\"}" -Method Get).data.result | ConvertTo-Json -Depth 6 } catch { $_.Exception.Message }
+
+# 7) LOKI ESTÁ FUNCIONANDO?
+try { (Invoke-WebRequest "http://localhost:3100/ready" -UseBasicParsing -TimeoutSec 5).StatusCode } catch { $_.Exception.Message }
+$now=[DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); $start=($now-900)*1000000000; $end=$now*1000000000; $q=[uri]::EscapeDataString('{service_name="unknown_service", level=~"INFO|WARN|ERROR"}'); $u="http://localhost:3100/loki/api/v1/query_range?query=$q&start=$start&end=$end&limit=20&direction=backward"; Invoke-RestMethod -Uri $u -Method Get | ConvertTo-Json -Depth 6
+
+# 8) GRAFANA ESTÁ NO AR?
+try { (Invoke-WebRequest "http://localhost:3000/api/health" -UseBasicParsing -TimeoutSec 5).StatusCode } catch { $_.Exception.Message }
+
+# 9) TESTE E2E DO PEDIDO (PUBLICA + CONSULTA ROTA KAFKA)
+$json = '{"cliente":"Teste E2E","produto":"Mouse","quantidade":1,"valorTotal":99.90}'; $bytes=[System.Text.Encoding]::UTF8.GetBytes($json); Invoke-WebRequest -Uri "http://localhost:8083/api/pedidos" -Method POST -Body $bytes -ContentType "application/json; charset=utf-8" -UseBasicParsing | Select-Object -ExpandProperty Content
+Start-Sleep -Seconds 2
+Invoke-WebRequest -Uri "http://localhost:8083/api/pedidos/kafka" -UseBasicParsing | Select-Object -ExpandProperty Content
+
+# 10) FLUXO COMPLETO ENTRADA.PEDIDO → PROCESSAMENTO → SAIDA.PEDIDO
+# Este fluxo simula o padrão entrada → processamento → saída (sem cache in-memory):
+# 1. POST /api/pedidos → CriarPedidoUseCase valida e publica Evento{tipo=PEDIDO_CRIADO} no tópico 'entrada.pedido'
+# 2. Kafka distribui para consumers do grupo 'integrador-group-pedidos'
+# 3. KafkaConsumerAdapter.consumirPedidoEntrada() recebe, enriquece com metadados Kafka, e publica em 'saida.pedido'
+# 4. Sistemas downstream consomem de 'saida.pedido' para processar pedidos com metadados completos
+# 
+# Características técnicas:
+# - Publicação SÍNCRONA com timeout de 10s para garantia de entrega
+# - Acknowledgment MANUAL no consumer (at-least-once delivery)
+# - Retry automático com backoff exponencial (3 tentativas, 1s inicial)
+# - DLQ (Dead Letter Queue) para mensagens falhas após 3 retries
+# - Circuit Breaker (50% falhas > OPEN por 30s)
+# - Metadados Kafka REAIS: offset, partition, topic, timestamp
+# 
+# Exemplo de teste:
+$pedido = @{
+  cliente = "Cliente Teste E2E"
+  produto = "Notebook Dell"
+  quantidade = 2
+  valorTotal = 8500.00
+} | ConvertTo-Json
+Invoke-RestMethod -Uri 'http://localhost:8083/api/pedidos' -Method Post -Body $pedido -ContentType 'application/json'
+
+# 11) MONITORAR PEDIDOS PROCESSADOS (TÓPICO SAIDA.PEDIDO)
+# Consultar mensagens processadas no tópico 'saida.pedido' que contém:
+# - Pedidos enriquecidos com metadados Kafka REAIS (offset, partition, timestamp)
+# - Status PROCESSADO com dataProcessamento
+# - Evento.tipo = "PEDIDO_PROCESSADO"
+# - Evento.status = "ENVIADO"
+# 
+# ⚠️ IMPORTANTE: Metadados Kafka são READ_ONLY (computados automaticamente pelo consumer)
+# Os campos abaixo NÃO podem ser enviados no POST - são SEMPRE calculados pelo consumer:
+# - dataProcessamento: Timestamp quando o consumer processou (LocalDateTime)
+# - statusProcessamento: Status do processamento ("PROCESSADO")
+# - kafkaOffset: Offset real da mensagem em entrada.pedido
+# - kafkaPartition: Partição Kafka onde a mensagem foi armazenada (0-2)
+# - kafkaTopic: Tópico origem da mensagem ("entrada.pedido")
+# - kafkaTimestamp: Timestamp original da mensagem em entrada.pedido (Instant UTC)
+# 
+# Se tentar enviar esses campos no POST, eles serão IGNORADOS e sobrescritos com valores reais.
+
+# Consumir últimas mensagens de saida.pedido (JSON bruto):
+docker exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic saida.pedido --from-beginning --max-messages 5 --timeout-ms 5000 2>$null
+
+# Consumir em tempo real (aguarda novas mensagens):
+docker exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic saida.pedido
+
+# Contar total de mensagens em saida.pedido:
+docker exec kafka kafka-run-class kafka.tools.GetOffsetShell --broker-list localhost:9092 --topic saida.pedido --time -1
+
+# Verificar partições e offsets:
+docker exec kafka kafka-consumer-groups --bootstrap-server localhost:9092 --group integrador-group-pedidos --describe
+
+# 12) LIMPEZA E ORGANIZAÇÃO
+# LIMPAR TÓPICOS DO KAFKA (⚠️ CUIDADO: Remove TODAS as mensagens dos tópicos)
+# Este comando para o Kafka, remove os dados e reinicia:
+docker compose down
+docker compose up -d
+
+# Aguardar 15s para Kafka subir e aguardar backend criar os tópicos automaticamente:
+Start-Sleep -Seconds 15
+
+# Verificar se Kafka está rodando:
+docker ps --filter "name=kafka" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+# Alternativa: Deletar apenas mensagens dos tópicos sem recriar (via kafka-ui):
+# Acesse: http://localhost:8090
+# Navegue até Topics → entrada.pedido → Messages → Delete All Messages
+
+# LIMPAR TÓPICOS VIA LINHA DE COMANDO (sem remover volumes):
+# Deletar tópicos de pedidos:
+docker exec kafka kafka-topics --bootstrap-server localhost:9092 --delete --topic entrada.pedido
+docker exec kafka kafka-topics --bootstrap-server localhost:9092 --delete --topic saida.pedido
+
+# Deletar tópicos de eventos genéricos:
+docker exec kafka kafka-topics --bootstrap-server localhost:9092 --delete --topic entrada.evento
+docker exec kafka kafka-topics --bootstrap-server localhost:9092 --delete --topic saida.evento
+
+# Deletar DLQ:
+docker exec kafka kafka-topics --bootstrap-server localhost:9092 --delete --topic entrada.evento.DLQ
+
+# Recriar tópicos (backend cria automaticamente ao reiniciar):
+# Basta reiniciar o backend que os tópicos serão recriados:
+$netstatResult = netstat -ano | findstr :8083; if($netstatResult) { $pidMatch = $netstatResult | Select-Object -First 1 | ForEach-Object { if($_ -match '\s+(\d+)$') { $matches[1] } }; if($pidMatch) { taskkill /F /PID $pidMatch } }
+.\mvnw spring-boot:run -DskipTests
+
+# Listar tópicos para confirmar:
+docker exec kafka kafka-topics --bootstrap-server localhost:9092 --list
+
+# 13) TROUBLESHOOTING: ERRO DE TIMEOUT DO KAFKA
+# Se você ver erros como:
+# "TimeoutException: Expiring 1 record(s) for entrada.pedido-2:120008 ms has passed since batch creation"
+#
+# CAUSAS COMUNS:
+# 1. Tópico tem menos partições que o esperado (1 ao invés de 3)
+# 2. Timeouts muito altos (120s padrão)
+# 3. Kafka está reiniciando ou deletando tópicos
+#
+# SOLUÇÃO:
+# Verificar número de partições:
+docker exec kafka kafka-topics --bootstrap-server localhost:9092 --describe --topic entrada.pedido
+
+# Se tópico tiver apenas 1 partição, deletar e reiniciar backend:
+docker exec kafka kafka-topics --bootstrap-server localhost:9092 --delete --topic entrada.pedido
+docker exec kafka kafka-topics --bootstrap-server localhost:9092 --delete --topic saida.pedido
+$netstatResult = netstat -ano | findstr :8083; if($netstatResult) { $pidMatch = $netstatResult | Select-Object -First 1 | ForEach-Object { if($_ -match '\s+(\d+)$') { $matches[1] } }; if($pidMatch) { taskkill /F /PID $pidMatch } }
+.\mvnw spring-boot:run -DskipTests
+
+# Verificar logs do Kafka:
+docker logs kafka --tail 50
+
+# Verificar se backend está enviando (deve ser ~200-300ms):
+# Ver nos logs: [ORQUESTRADOR-PEDIDO] Pedido criado com sucesso
+
+# CONFIGURAÇÕES DE TIMEOUT (já aplicadas em application.yaml):
+# delivery.timeout.ms: 30000 (30s)
+# request.timeout.ms: 10000 (10s)
+# max.block.ms: 15000 (15s)

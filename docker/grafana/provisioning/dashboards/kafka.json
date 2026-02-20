@@ -1,0 +1,95 @@
+{
+  "title": "kafka - Integrador",
+  "uid": "kafka-integrador",
+  "version": 1,
+  "schemaVersion": 37,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Mensagens Processadas (sucesso vs falha)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(integrador_mensagens_total{status=\"sucesso\"}[1m])",
+          "legendFormat": "Sucesso/s"
+        },
+        {
+          "expr": "rate(integrador_mensagens_total{status=\"falha\"}[1m])",
+          "legendFormat": "Falha/s"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Latência de Processamento (P50 / P95 / P99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(integrador_processamento_segundos_bucket[1m]))",
+          "legendFormat": "P50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(integrador_processamento_segundos_bucket[1m]))",
+          "legendFormat": "P95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(integrador_processamento_segundos_bucket[1m]))",
+          "legendFormat": "P99"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Estado do Circuit Breaker (kafka-producer)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "resilience4j_circuitbreaker_state{name=\"kafka-producer\"}",
+          "legendFormat": "Estado"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Estado do Circuit Breaker (sistema-b)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+      "targets": [
+        {
+          "expr": "resilience4j_circuitbreaker_state{name=\"sistema-b\"}",
+          "legendFormat": "Estado"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Total de Chamadas com Retry",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(resilience4j_retry_calls_total{kind=\"failed_with_retry\"})",
+          "legendFormat": "Retries"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Logs da Aplicação (Loki)",
+      "type": "logs",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 12 },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{app=\"kafka\"}",
+          "legendFormat": ""
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,193 @@
+spring:
+  application:
+    name: kafka-integrador
+
+  #  APACHE KAFKA
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    # --- Produtor ---
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all                  # Aguarda confirmacao de todas as replicas (mais seguro)
+      retries: 3                 # Tentativas em caso de falha na publicacao
+      properties:
+        enable.idempotence: true # Evita mensagens duplicadas no broker
+        max.in.flight.requests.per.connection: 1
+        delivery.timeout.ms: 30000      # Timeout total para envio (30s ao invés de 120s)
+        request.timeout.ms: 10000       # Timeout por requisição (10s)
+        max.block.ms: 15000             # Tempo max de bloqueio ao enviar (15s)
+        linger.ms: 10                   # Aguarda 10ms para agrupar mensagens (melhor throughput)
+        batch.size: 16384               # Tamanho do batch em bytes
+
+    # --- Consumidor ---
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      group-id: integrador-group
+      auto-offset-reset: earliest  # Le desde o inicio se nao houver offset salvo
+      enable-auto-commit: false    # Commit manual - so confirma apos processar com sucesso
+      properties:
+        spring.json.trusted.packages: "com.integracao.kafka.*"
+        isolation.level: read_committed  # Le apenas mensagens de transacoes confirmadas
+
+    # --- Listener ---
+    listener:
+      ack-mode: manual_immediate  # ACK manual para garantir at-least-once delivery
+      concurrency: 3              # Threads paralelas por listener
+      missing-topics-fatal: false # Nao falha na inicializacao se topico nao existir
+
+#  RESILIENCE4J 
+resilience4j:
+
+  # --- Circuit Breaker ---
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: count_based
+        sliding-window-size: 10             # Avalia os ultimos 10 requests
+        failure-rate-threshold: 50          # Abre o circuito se 50% falharem
+        slow-call-rate-threshold: 80        # Abre se 80% das chamadas forem lentas
+        slow-call-duration-threshold: 3s    # Chamada considerada lenta apos 3s
+        wait-duration-in-open-state: 10s    # Aguarda 10s antes de tentar novamente
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true     # Expoe status no /actuator/health
+    instances:
+      sistema-b:
+        base-config: default
+      kafka-producer:
+        base-config: default
+        failure-rate-threshold: 30          # Mais sensivel para o broker
+
+  # --- Retry ---
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2   # 500ms -> 1s -> 2s
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.HttpServerErrorException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException  # Nao tenta de novo em erros de dados
+    instances:
+      sistema-b:
+        base-config: default
+      kafka-producer:
+        base-config: default
+        max-attempts: 5
+
+  # --- Bulkhead (limita chamadas simultaneas) ---
+  bulkhead:
+    configs:
+      default:
+        max-concurrent-calls: 10
+        max-wait-duration: 100ms
+    instances:
+      sistema-b:
+        base-config: default
+      kafka-producer:
+        max-concurrent-calls: 20
+        max-wait-duration: 50ms
+
+  # --- Rate Limiter ---
+  ratelimiter:
+    configs:
+      default:
+        limit-for-period: 100               # Max 100 chamadas por janela
+        limit-refresh-period: 1s            # Janela de 1 segundo
+        timeout-duration: 500ms             # Aguarda 500ms por um slot livre
+    instances:
+      sistema-b:
+        base-config: default
+
+#  PROMETHEUS + GRAFANA (Monitoramento de Metricas)
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - prometheus   # Endpoint raspado pelo Prometheus: /actuator/prometheus
+          - metrics
+          - info
+          - circuitbreakers  # Expoe status dos circuit breakers
+          - retries
+  endpoint:
+    health:
+      show-details: always  # Mostra detalhes de saude de cada componente
+      show-components: always
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true       # Histograma de latencia HTTP
+        "[kafka.consumer.fetch-latency-avg]": true
+      percentiles:
+        "[http.server.requests]": 0.5, 0.95, 0.99  # P50, P95, P99
+    tags:
+      application: ${spring.application.name}
+      ambiente: ${APP_ENV:local}             # Tag de ambiente para filtrar no Grafana
+
+#  LOKI (Centralizacao de Logs)
+logging:
+  loki:
+    url: ${LOKI_URL:http://localhost:3100/loki/api/v1/push}
+  pattern:
+    # Padrao estruturado para facilitar queries no Grafana/Loki
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [traceId=%X{traceId}] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.integracao.kafka: DEBUG
+    org.apache.kafka: WARN          # Reduz verbosidade do Kafka
+    org.springframework.kafka: INFO
+
+# ============================================================
+#  SERVIDOR
+# ============================================================
+server:
+  port: 8083
+  tomcat:
+    max-threads: 50
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    try-it-out-enabled: true
+
+# ============================================================
+#  PROFILES (sobrescreva por ambiente)
+# ============================================================
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS}
+    producer:
+      properties:
+        enable.idempotence: true
+    ssl:
+      enabled: false   # Habilite em prod com certificados
+
+management:
+  endpoint:
+    health:
+      show-details: never   # Nao expoe detalhes internos em producao
+
+logging:
+  level:
+    root: WARN
+    com.integracao.kafka: INFO
