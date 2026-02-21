@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import com.integracao.kafka.domain.entity.Pedido;
+import com.integracao.kafka.domain.model.Pedido;
 
 @Service
 public class ReceberPedidoUseCase {

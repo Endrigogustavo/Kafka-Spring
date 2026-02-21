@@ -9,9 +9,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.integracao.kafka.application.gateway.out.PublicarEventoPort;
 import com.integracao.kafka.application.useCase.subscribe.GerenciarFalhasUseCase;
 import com.integracao.kafka.application.useCase.subscribe.ReceberPedidoUseCase;
-import com.integracao.kafka.domain.entity.Evento;
-import com.integracao.kafka.domain.entity.FalhaProcessamento.TipoFalha;
-import com.integracao.kafka.domain.entity.Pedido;
+import com.integracao.kafka.domain.model.Evento;
+import com.integracao.kafka.domain.model.Pedido;
+import com.integracao.kafka.domain.model.FalhaProcessamento.TipoFalha;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +25,7 @@ public class PedidoConsumer {
     private final ObjectMapper objectMapper;
     private final ReceberPedidoUseCase receberPedidoUseCase;
     private final GerenciarFalhasUseCase gerenciarFalhasUseCase;
+    private final com.integracao.kafka.application.service.PedidoService pedidoService;
 
     @KafkaListener(
         topics = "${integrador.topico.entrada-pedido:entrada.pedido}",
@@ -54,6 +55,12 @@ public class PedidoConsumer {
             Evento eventoEntrada = record.value();
             Pedido pedido = objectMapper.convertValue(eventoEntrada.getPayload(), Pedido.class);
 
+            log.info("[CONSUMER-PEDIDO] Enviando pedido para persistencia no banco | numero={} cliente={} produto={} topico={} particao={} offset={}",
+                pedido.getNumeroPedido(), pedido.getCliente(), pedido.getProduto(), topico, partition, offset);
+            pedidoService.criarPedido(pedido);
+            log.info("[CONSUMER-PEDIDO] Persistencia de pedido concluida no banco | numero={} topico={} particao={} offset={}",
+                pedido.getNumeroPedido(), topico, partition, offset);
+            
             if (pedido.getNumeroPedido() == null || pedido.getNumeroPedido().isBlank()) {
                 throw new IllegalArgumentException("Pedido sem numeroPedido no payload");
             }

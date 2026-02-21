@@ -19,12 +19,15 @@ import org.springframework.web.bind.annotation.RestController;
 import com.integracao.kafka.adapter.dto.request.PedidoDtoRequest;
 import com.integracao.kafka.application.useCase.publish.PublicarPedidoUseCase;
 import com.integracao.kafka.application.useCase.subscribe.ReceberPedidoUseCase;
-import com.integracao.kafka.domain.entity.Pedido;
+import com.integracao.kafka.domain.model.Pedido;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import com.integracao.kafka.domain.entity.PedidoEntity;
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -35,6 +38,7 @@ public class PedidoController {
 
     private final PublicarPedidoUseCase criarPedidoUseCase;
     private final ReceberPedidoUseCase receberPedidoUseCase;
+    private final com.integracao.kafka.application.service.PedidoService pedidoService;
 
     @PostMapping
     @Operation(summary = "Criar novo pedido", description = "Cria um pedido e publica no tópico Kafka 'entrada.pedido' para processamento")
@@ -142,18 +146,10 @@ public class PedidoController {
     }
  
 
-    @GetMapping("/exemplo")
-    @Operation(summary = "Exemplo de pedido", description = "Retorna um exemplo de estrutura de pedido para referência")
-    public ResponseEntity<Pedido> exemploPedido() {
-        Pedido exemplo = Pedido.builder()
-                .cliente("João Silva")
-                .produto("Notebook Dell XPS")
-                .quantidade(1)
-                .valorTotal(new java.math.BigDecimal("4500.00"))
-                .build();
-
-        exemplo.preencherMetadadosMocadosSeNecessario();
-        return ResponseEntity.ok(exemplo);
+    @GetMapping("/h2/find-all")
+    @Operation(summary = "Buscar todos os pedidos", description = "Retorna todos os pedidos cadastrados no sistema (dados persistidos no H2)")
+    public ResponseEntity<List<PedidoEntity>> findAllPedido() {
+        return ResponseEntity.ok(pedidoService.listarPedidos());
     }
 
     private void validarRequisicao(PedidoDtoRequest pedido) {

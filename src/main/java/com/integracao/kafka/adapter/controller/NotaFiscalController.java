@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.integracao.kafka.adapter.dto.request.NotaDtoRequest; 
 import com.integracao.kafka.application.useCase.publish.PublicarNotaFiscalUseCase;
 import com.integracao.kafka.application.useCase.subscribe.ReceberNotaUseCase;
-import com.integracao.kafka.domain.entity.NotaFiscal; 
+import com.integracao.kafka.domain.model.NotaFiscal;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

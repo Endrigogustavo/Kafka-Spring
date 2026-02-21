@@ -9,9 +9,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.integracao.kafka.application.gateway.out.PublicarEventoPort;
 import com.integracao.kafka.application.useCase.subscribe.GerenciarFalhasUseCase;
 import com.integracao.kafka.application.useCase.subscribe.ReceberNotaUseCase;
-import com.integracao.kafka.domain.entity.Evento;
-import com.integracao.kafka.domain.entity.FalhaProcessamento.TipoFalha;
-import com.integracao.kafka.domain.entity.NotaFiscal; 
+import com.integracao.kafka.domain.model.Evento;
+import com.integracao.kafka.domain.model.NotaFiscal;
+import com.integracao.kafka.domain.model.FalhaProcessamento.TipoFalha;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

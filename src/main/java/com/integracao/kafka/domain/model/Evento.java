@@ -1,4 +1,4 @@
-package com.integracao.kafka.domain.entity;
+package com.integracao.kafka.domain.model;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

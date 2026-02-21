@@ -9,9 +9,9 @@ import org.springframework.stereotype.Service;
 import com.integracao.kafka.application.gateway.in.PublicarNotaPort;
 import com.integracao.kafka.application.gateway.out.PublicarEventoPort;
 import com.integracao.kafka.application.metrics.IntegradorMetrics;
-import com.integracao.kafka.domain.entity.Evento;
-import com.integracao.kafka.domain.entity.NotaFiscal;
-import com.integracao.kafka.domain.entity.Pedido;
+import com.integracao.kafka.domain.model.Evento;
+import com.integracao.kafka.domain.model.NotaFiscal;
+import com.integracao.kafka.domain.model.Pedido;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

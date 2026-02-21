@@ -12,10 +12,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.integracao.kafka.application.gateway.out.PublicarEventoPort;
-import com.integracao.kafka.domain.entity.Evento;
-import com.integracao.kafka.domain.entity.FalhaProcessamento;
-import com.integracao.kafka.domain.entity.FalhaProcessamento.StatusFalha;
-import com.integracao.kafka.domain.entity.FalhaProcessamento.TipoFalha;
+import com.integracao.kafka.domain.model.Evento;
+import com.integracao.kafka.domain.model.FalhaProcessamento;
+import com.integracao.kafka.domain.model.FalhaProcessamento.StatusFalha;
+import com.integracao.kafka.domain.model.FalhaProcessamento.TipoFalha;
 
 import lombok.extern.slf4j.Slf4j;
 

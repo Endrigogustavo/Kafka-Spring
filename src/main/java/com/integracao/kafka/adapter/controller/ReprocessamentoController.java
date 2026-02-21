@@ -12,9 +12,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.integracao.kafka.application.useCase.subscribe.GerenciarFalhasUseCase;
-import com.integracao.kafka.domain.entity.FalhaProcessamento;
-import com.integracao.kafka.domain.entity.FalhaProcessamento.StatusFalha;
-import com.integracao.kafka.domain.entity.FalhaProcessamento.TipoFalha;
+import com.integracao.kafka.domain.model.FalhaProcessamento;
+import com.integracao.kafka.domain.model.FalhaProcessamento.StatusFalha;
+import com.integracao.kafka.domain.model.FalhaProcessamento.TipoFalha;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

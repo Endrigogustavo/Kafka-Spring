@@ -1,6 +1,6 @@
 package com.integracao.kafka.application.gateway.out;
 
-import com.integracao.kafka.domain.entity.Evento;
+import com.integracao.kafka.domain.model.Evento;
 
 /**
  * Port de saída (Hexagonal).

@@ -6,7 +6,7 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 import com.integracao.kafka.application.gateway.in.ProcessarEventoPort;
-import com.integracao.kafka.domain.entity.Evento;
+import com.integracao.kafka.domain.model.Evento;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

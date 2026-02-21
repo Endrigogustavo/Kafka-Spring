@@ -6,7 +6,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import com.integracao.kafka.application.gateway.out.PublicarEventoPort;
-import com.integracao.kafka.domain.entity.Evento;
+import com.integracao.kafka.domain.model.Evento;
 
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;

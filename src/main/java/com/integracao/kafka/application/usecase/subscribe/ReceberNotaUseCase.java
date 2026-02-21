@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import com.integracao.kafka.domain.entity.NotaFiscal;
+import com.integracao.kafka.domain.model.NotaFiscal;
 
 @Service
 public class ReceberNotaUseCase {
