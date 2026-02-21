@@ -16,48 +16,6 @@ Integrador entre dois sistemas com arquitetura **Hexagonal + Orquestração via 
 
 ---
 
-## Estrutura do Projeto
-
-```
-kafka/
-├── src/main/java/com/integracao/kafka/
-│   ├── KafkaApplication.java
-│   ├── adapter/
-│   │   ├── in/
-│   │   │   ├── kafka/KafkaConsumerAdapter.java  ← recebe do Kafka
-│   │   │   └── http/PedidoController.java       ← recebe requisições HTTP
-│   │   └── out/kafka/KafkaProducerAdapter.java  ← publica no Kafka
-│   ├── application/usecase/
-│   │   ├── ProcessarEventoUseCase.java          ← orquestrador de eventos
-│   │   └── CriarPedidoUseCase.java              ← orquestrador de pedidos
-│   ├── config/
-│   │   └── KafkaConfig.java                     ← tópicos + DLQ
-│   ├── domain/model/
-│   │   ├── Evento.java
-│   │   └── Pedido.java
-│   ├── infrastructure/
-│   │   └── metrics/IntegradorMetrics.java       ← métricas Prometheus
-│   └── port/
-│       ├── in/
-│       │   ├── ProcessarEventoPort.java
-│       │   └── CriarPedidoPort.java             ← porta para criar pedidos
-│       └── out/PublicarEventoPort.java
-├── src/main/resources/
-│   ├── application.yaml
-│   └── logback-spring.xml
-├── docker/
-│   ├── prometheus.yml
-│   └── grafana/provisioning/
-│       ├── datasources/datasources.yaml
-│       └── dashboards/
-│           ├── dashboards.yaml
-│           └── kafka.json                       ← dashboard pronto
-├── docker-compose.yml
-└── pom.xml
-```
-
----
-
 ## Como Rodar
 
 ### 1. Subir a infraestrutura (Kafka, Prometheus, Grafana, Loki)
@@ -115,13 +73,6 @@ curl http://localhost:8080/actuator/prometheus | grep integrador
 | POST   | /api/pedidos         | Cria pedido e publica em entrada.pedido      |
 | GET    | /api/pedidos/exemplo | Retorna exemplo de pedido com metadados mock|
 
-### Health & Metrics
-
-| Método | Endpoint                   | Descrição                              |
-|--------|----------------------------|----------------------------------------|
-| GET    | /api/ping                  | Health check simples                   |
-| GET    | /actuator/health           | Health check completo (Spring)         |
-| GET    | /actuator/prometheus       | Métricas no formato Prometheus         |
 
 ### Exemplo de Requisição
 
@@ -238,56 +189,6 @@ Kafka (saida.evento)
         │
         ▼
      Sistema B
-```
-
-### Fluxo 2: Pedidos (entrada.pedido → saida.pedido)
-
-```
-Cliente HTTP
-    │
-    ▼ POST /api/pedidos
-PedidoController (Adapter HTTP)
-    │
-    ▼ delega para use case
-CriarPedidoUseCase (Orquestrador)
-  1. Valida pedido (valorTotal > 0)
-  2. Gera numeroPedido se vazio
-  3. Preenche metadados mocados
-  4. Encapsula em Evento
-  5. Publica via PublicarEventoPort
-    │
-    ▼
-KafkaProducerAdapter
-  ├── Timeout: 30s (delivery)
-  ├── Retry: 3 tentativas
-  ├── CircuitBreaker + Bulkhead
-  └── Publicação síncrona com confirmação
-    │
-    ▼
-Kafka (entrada.pedido - 3 partições)
-    │
-    ▼
-KafkaConsumerAdapter.consumirPedidoEntrada()
-  1. Converte payload JSON → Pedido
-  2. Valida numeroPedido != null
-  3. Enriquece com metadados Kafka REAIS:
-     - dataProcessamento (LocalDateTime)
-     - statusProcessamento ("PROCESSADO")
-     - kafkaOffset (offset real)
-     - kafkaPartition (0-2)
-     - kafkaTopic ("entrada.pedido")
-     - kafkaTimestamp (Instant UTC)
-  4. Cria Evento de saída (tipo=PEDIDO_PROCESSADO)
-  5. Publica em saida.pedido via PublicarEventoPort
-  6. ACK manual
-    │
-    ▼
-Kafka (saida.pedido - 3 partições)
-    │
-    ▼
-  Sistema Downstream
-  (pode ser outro consumer, banco, etc.)
-```
 
 ---
 

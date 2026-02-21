@@ -1,14 +1,16 @@
-package com.integracao.kafka.application.usecase;
+package com.integracao.kafka.application.useCase;
 
-import com.integracao.kafka.domain.model.Evento;
-import com.integracao.kafka.domain.model.Evento.StatusEvento;
-import com.integracao.kafka.infrastructure.metrics.IntegradorMetrics;
-import com.integracao.kafka.port.in.ProcessarEventoPort;
-import com.integracao.kafka.port.out.PublicarEventoPort;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import com.integracao.kafka.application.gateway.in.ProcessarEventoPort;
+import com.integracao.kafka.application.gateway.out.PublicarEventoPort;
+import com.integracao.kafka.application.metrics.IntegradorMetrics;
+import com.integracao.kafka.domain.entity.Evento;
+import com.integracao.kafka.domain.entity.Evento.StatusEvento;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Use Case / Orquestrador central.
