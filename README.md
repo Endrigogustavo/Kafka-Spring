@@ -1,6 +1,6 @@
 # kafka — Integrador Event-Driven
 
-Integrador entre dois sistemas com arquitetura **Hexagonal + Orquestração via Event-Driven**.
+Integrador entre dois sistemas com arquitetura **clean + Orquestração via Event-Driven**.
 
 ## Stack
 
