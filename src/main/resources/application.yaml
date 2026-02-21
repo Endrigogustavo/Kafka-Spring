@@ -47,7 +47,7 @@ spring:
         max.poll.records: 500
         fetch.min.bytes: 1024
         fetch.max.wait.ms: 100
-        max.poll.interval.ms: 300000
+        max.poll.interval.ms: 3600000
         session.timeout.ms: 15000
 
     # --- Listener ---
@@ -57,6 +57,9 @@ spring:
       missing-topics-fatal: false # Nao falha na inicializacao se topico nao existir
 
 integrador:
+  persistencia:
+    retry-interval-ms: 5000
+    retry-max-interval-ms: 30000
   topico:
     erro-evento: erro.evento
     erro-pedido: erro.pedido
