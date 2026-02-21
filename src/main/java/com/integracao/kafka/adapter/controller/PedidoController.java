@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.integracao.kafka.adapter.dto.request.PedidoDtoRequest;
 import com.integracao.kafka.application.useCase.publish.PublicarPedidoUseCase;
+import com.integracao.kafka.application.useCase.subscribe.ReceberPedidoUseCase;
 import com.integracao.kafka.domain.entity.Pedido;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PedidoController {
 
     private final PublicarPedidoUseCase criarPedidoUseCase;
+    private final ReceberPedidoUseCase receberPedidoUseCase;
 
     @PostMapping
     @Operation(summary = "Criar novo pedido", description = "Cria um pedido e publica no tópico Kafka 'entrada.pedido' para processamento")
@@ -131,6 +133,12 @@ public class PedidoController {
         resultado.put("primeirosErros",     erros);
 
         return ResponseEntity.ok(resultado);
+    }
+
+    @GetMapping("/consumidos")
+    @Operation(summary = "Listar pedidos consumidos", description = "Retorna os últimos pedidos processados pelo consumer")
+    public ResponseEntity<List<Pedido>> listarPedidosConsumidos(@RequestParam(defaultValue = "50") int limite) {
+        return ResponseEntity.ok(receberPedidoUseCase.listarUltimos(limite));
     }
  
 

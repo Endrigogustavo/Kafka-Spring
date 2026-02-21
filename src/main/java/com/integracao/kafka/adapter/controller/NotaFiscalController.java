@@ -1,17 +1,21 @@
 package com.integracao.kafka.adapter.controller;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.integracao.kafka.adapter.dto.request.NotaDtoRequest; 
 import com.integracao.kafka.application.useCase.publish.PublicarNotaFiscalUseCase;
+import com.integracao.kafka.application.useCase.subscribe.ReceberNotaUseCase;
 import com.integracao.kafka.domain.entity.NotaFiscal; 
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 public class NotaFiscalController {
 
     private final PublicarNotaFiscalUseCase criarNotaFiscalUseCase;
+    private final ReceberNotaUseCase receberNotaUseCase;
 
 
     @PostMapping
@@ -68,6 +73,12 @@ public class NotaFiscalController {
                     "mensagem", "Falha ao criar nota fiscal : " + e.getMessage()
             ));
         }
+    }
+
+    @GetMapping("/consumidas")
+    @Operation(summary = "Listar notas consumidas", description = "Retorna as últimas notas fiscais processadas pelo consumer")
+    public ResponseEntity<List<NotaFiscal>> listarNotasConsumidas(@RequestParam(defaultValue = "50") int limite) {
+        return ResponseEntity.ok(receberNotaUseCase.listarUltimas(limite));
     }
 
     private void validarRequisicao(NotaDtoRequest nota) {

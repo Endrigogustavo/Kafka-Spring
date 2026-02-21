@@ -29,11 +29,20 @@ public class KafkaConfig {
     @Value("${integrador.topico.saida-pedido:saida.pedido}")
     private String topicoSaidaPedido;
 
-    @Value("${integrador.topico.entrada-nota:entrada.nota}")
+    @Value("${integrador.topico.nota:entrada.nota}")
     private String topicoEntradaNota;
 
     @Value("${integrador.topico.saida-nota:saida.nota}")
     private String topicoSaidaNota;
+
+    @Value("${integrador.topico.erro-evento:erro.evento}")
+    private String topicoErroEvento;
+
+    @Value("${integrador.topico.erro-pedido:erro.pedido}")
+    private String topicoErroPedido;
+
+    @Value("${integrador.topico.erro-nota:erro.nota}")
+    private String topicoErroNota;
 
     // ─── Criação automática de tópicos ───────────────────────────────────────
 
@@ -44,6 +53,8 @@ public class KafkaConfig {
             .replicas(1)     // aumente para 3 em produção com cluster
             .build();
     }
+
+    
 
     @Bean
     public NewTopic topicoEntradaNota() {
@@ -86,35 +97,50 @@ public class KafkaConfig {
     }
 
     @Bean
-    public NewTopic topicoDlqEntrada() {
-        // DLQ do tópico de entrada — mensagens que falharam N vezes
-        return TopicBuilder.name(topicoEntrada + ".DLQ")
-            .partitions(1)
+    public NewTopic topicoErroEntrada() {
+        return TopicBuilder.name(topicoErroEvento)
+            .partitions(3)
             .replicas(1)
             .build();
     }
 
-    // ─── Error Handler com DLQ ───────────────────────────────────────────────
+    @Bean
+    public NewTopic topicoErroPedido() {
+        return TopicBuilder.name(topicoErroPedido)
+            .partitions(3)
+            .replicas(1)
+            .build();
+    }
+
+    @Bean
+    public NewTopic topicoErroNota() {
+        return TopicBuilder.name(topicoErroNota)
+            .partitions(3)
+            .replicas(1)
+            .build();
+    }
+
+    // ─── Error Handler com tópico de erro de processamento ───────────────────
 
     /**
      * Estratégia de erro:
      * 1. Tenta processar a mensagem com 3 tentativas, aguardando 1s entre cada
-     * 2. Após 3 falhas, publica a mensagem no tópico .DLQ automaticamente
+        * 2. Após tentativas esgotadas, publica no tópico erro.<dominio>
      * 3. O fluxo principal não é bloqueado
      */
     @Bean
     public DefaultErrorHandler errorHandler(KafkaTemplate<Object, Object> kafkaTemplate) {
-        // Recoverer: envia para o tópico .DLQ da mesma partição
+        // Recoverer: envia para o tópico de erro da mesma partição
         var recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
             (record, ex) -> {
-                String dlqTopico = record.topic() + ".DLQ";
-                log.error("[DLQ] Mensagem enviada para DLQ | topico={} dlq={} erro={}",
-                    record.topic(), dlqTopico, ex.getMessage());
-                return new TopicPartition(dlqTopico, -1); // -1 = qualquer partição
+                String topicoErro = topicoErroProcessamento(record.topic());
+                log.error("[ERRO-PROCESSAMENTO] Mensagem enviada para tópico de erro | topico={} topicoErro={} erro={}",
+                    record.topic(), topicoErro, ex.getMessage());
+                return new TopicPartition(topicoErro, record.partition());
             });
 
-        // BackOff: 3 tentativas com 1 segundo de intervalo
-        var backOff = new FixedBackOff(1_000L, 3L);
+        // BackOff: 2 tentativas com 500ms para reduzir latência total de recuperação
+        var backOff = new FixedBackOff(500L, 2L);
 
         var handler = new DefaultErrorHandler(recoverer, backOff);
 
@@ -122,5 +148,15 @@ public class KafkaConfig {
         handler.addNotRetryableExceptions(IllegalArgumentException.class);
 
         return handler;
+    }
+
+    private String topicoErroProcessamento(String topicoOrigem) {
+        if (topicoEntradaPedido.equals(topicoOrigem)) {
+            return topicoErroPedido;
+        }
+        if (topicoEntradaNota.equals(topicoOrigem)) {
+            return topicoErroNota;
+        }
+        return topicoErroEvento;
     }
 }
