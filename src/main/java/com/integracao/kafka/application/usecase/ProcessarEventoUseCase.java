@@ -32,7 +32,7 @@ public class ProcessarEventoUseCase implements ProcessarEventoPort {
     private final PublicarEventoPort publicarEventoPort;
     private final IntegradorMetrics  metrics;
 
-    @Value("${integrador.topico.saida:saida.evento}")
+    @Value("${integrador.topico.saida:integrador.evento.processado}")
     private String topicoSaida;
 
     @Override

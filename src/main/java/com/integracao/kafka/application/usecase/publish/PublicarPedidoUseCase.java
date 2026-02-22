@@ -21,7 +21,7 @@ public class PublicarPedidoUseCase implements PublicarPedidoPort {
     private final PublicarEventoPort publicarEventoPort;
     private final IntegradorMetrics metrics;
     
-    private static final String TOPICO_ENTRADA_PEDIDO = "entrada.pedido";
+    private static final String TOPICO_ENTRADA_PEDIDO = "integrador.pedido.recebido";
 
     @Override
     public String executar(Pedido pedido) {

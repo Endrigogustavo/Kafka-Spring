@@ -62,9 +62,19 @@ integrador:
     retry-max-interval-ms: 30000
   topico:
     retencao-ms: 604800000  # 7 dias em milissegundos
-    erro-evento: erro.evento
-    erro-pedido: erro.pedido
-    erro-nota: erro.nota
+    retencao-dlq-ms: 60480000000
+    entrada: integrador.evento.recebido
+    saida: integrador.evento.processado
+    entrada-pedido: integrador.pedido.recebido
+    saida-pedido: integrador.pedido.processado
+    nota: integrador.nota.recebido
+    saida-nota: integrador.nota.processado
+    retry-evento: integrador.evento.retry
+    retry-pedido: integrador.pedido.retry
+    retry-nota: integrador.nota.retry
+    dlq-evento: integrador.evento.dlq
+    dlq-pedido: integrador.pedido.dlq
+    dlq-nota: integrador.nota.dlq
   historico:
     falhas:
       limite: 2000

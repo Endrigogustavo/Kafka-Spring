@@ -1,202 +1,269 @@
-# kafka — Integrador Event-Driven
+# Kafka Integrador (Spring Boot + Kafka)
 
-Integrador entre dois sistemas com arquitetura **Hexagonal + Orquestração via Event-Driven**.
+Integrador event-driven com arquitetura limpa para processamento de **Pedidos**, **Notas Fiscais** e **Eventos Genéricos**, com trilhas de **retry** e **DLQ**, além de observabilidade com Prometheus, Grafana e Loki.
 
 ## Stack
 
-| Componente     | Tecnologia                          |
-|----------------|-------------------------------------|
-| Framework      | Spring Boot 3.3.4 + Java 21         |
-| Mensageria     | Apache Kafka                        |
-| Resiliência    | Resilience4j (CB + Retry + Bulkhead)|
-| Métricas       | Prometheus + Grafana                |
-| Logs           | Loki + Logback                      |
-| Build          | Maven                               |
-| Infraestrutura | Docker Compose                      |
+- Java 21
+- Spring Boot 3.3.4
+- Spring Kafka
+- Spring Data JPA + H2 (in-memory)
+- Resilience4j (CircuitBreaker, Retry, Bulkhead, RateLimiter)
+- Actuator + Micrometer + Prometheus
+- Grafana + Loki
+- Docker Compose
 
----
+## Arquitetura (atual)
 
-## Como Rodar
+Estrutura principal por camadas:
 
-### 1. Subir a infraestrutura (Kafka, Prometheus, Grafana, Loki)
+- `adapter`
+  - Controllers REST e DTOs de entrada/saída.
+- `application`
+  - Use cases, gateways (ports), serviços de aplicação e métricas.
+- `domain`
+  - Modelos e entidades de negócio.
+- `frameworkDrivers`
+  - Kafka (consumers/producers), configurações e detalhes de infraestrutura.
+
+### Fluxo resumido
+
+1. API recebe pedido/nota.
+2. Use case publica evento no tópico `integrador.<recurso>.recebido`.
+3. Consumer processa, persiste e publica em `integrador.<recurso>.processado`.
+4. Em falha técnica no processamento inicial: `DefaultErrorHandler` envia para `integrador.<recurso>.retry`.
+5. Em falha durante reprocessamento (ou erro de validação): mensagem segue para `integrador.<recurso>.dlq`.
+6. Falhas de pedido/nota ficam registradas em memória e podem ser reprocessadas/descartadas via API.
+
+## Convenção de tópicos
+
+Padrão: `integrador.<recurso>.<estado>`
+
+- Domínio: `integrador`
+- Recursos: `evento`, `pedido`, `nota`
+- Estados: `recebido`, `processado`, `retry`, `dlq`
+
+### Tópicos usados no projeto
+
+| Recurso | Recebido | Processado | Retry | DLQ |
+|---|---|---|---|---|
+| evento | `integrador.evento.recebido` | `integrador.evento.processado` | `integrador.evento.retry` | `integrador.evento.dlq` |
+| pedido | `integrador.pedido.recebido` | `integrador.pedido.processado` | `integrador.pedido.retry` | `integrador.pedido.dlq` |
+| nota | `integrador.nota.recebido` | `integrador.nota.processado` | `integrador.nota.retry` | `integrador.nota.dlq` |
+
+## Endereços e portas
+
+Com `docker compose up -d`:
+
+- Kafka: `localhost:9092`
+- Kafka UI: `http://localhost:8090`
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000` (admin/admin)
+- Loki: `http://localhost:3100`
+
+Aplicação Spring Boot:
+
+- API: `http://localhost:8082`
+- Swagger UI: `http://localhost:8082/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8082/v3/api-docs`
+- Actuator Health: `http://localhost:8082/actuator/health`
+- Actuator Prometheus: `http://localhost:8082/actuator/prometheus`
+
+## Como executar
+
+### 1) Subir infraestrutura
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-Aguarde ~30 segundos para o Kafka inicializar.
+### 2) Rodar aplicação
 
-### 2. Compilar e rodar a aplicação
+Windows (PowerShell):
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+Linux/Mac:
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-Ou gerar o JAR e rodar:
+### 3) Rodar testes
 
-```bash
-./mvnw clean package -DskipTests
-java -jar target/kafka-0.0.1-SNAPSHOT.jar
+Windows:
+
+```powershell
+.\mvnw.cmd test
 ```
 
-### 3. Verificar se está funcionando
+Linux/Mac:
 
 ```bash
-# Health check
-curl http://localhost:8080/actuator/health
-
-# Métricas Prometheus
-curl http://localhost:8080/actuator/prometheus | grep integrador
+./mvnw test
 ```
 
----
+## Rotas da API (100% atualizadas)
 
-## Interfaces Disponíveis
+### Pedidos (`/api/pedidos`)
 
-| Interface       | URL                          | Credenciais      |
-|-----------------|------------------------------|------------------|
-| Aplicação       | http://localhost:8083        | —                |
-| Swagger UI      | http://localhost:8083/swagger-ui.html | —       |
-| Kafka UI        | http://localhost:8090        | —                |
-| Prometheus      | http://localhost:9090        | —                |
-| Grafana         | http://localhost:3000        | admin / admin    |
-| Loki            | http://localhost:3100        | —                |
+- `POST /api/pedidos`
+  - Cria pedido e publica em `integrador.pedido.recebido`.
+- `POST /api/pedidos/teste-carga?quantidade=1000`
+  - Dispara carga sintética de pedidos e retorna métricas.
+- `GET /api/pedidos/consumidos?limite=50`
+  - Lista pedidos processados mantidos em memória.
+- `GET /api/pedidos/h2/find-all`
+  - Lista pedidos persistidos no H2.
 
----
+Payload (`POST /api/pedidos`):
 
-## Endpoints da API
-
-### Pedidos
-
-| Método | Endpoint             | Descrição                                    |
-|--------|----------------------|----------------------------------------------|
-| POST   | /api/pedidos         | Cria pedido e publica em entrada.pedido      |
-| GET    | /api/pedidos/exemplo | Retorna exemplo de pedido com metadados mock|
-
-
-### Exemplo de Requisição
-
-```bash
-# Criar pedido
-curl -X POST http://localhost:8083/api/pedidos \
-  -H "Content-Type: application/json" \
-  -d '{
-    "numeroPedido": "PED-12345",
-    "clienteId": "CLI-001",
-    "produtos": [
-      {
-        "produtoId": "PROD-A",
-        "quantidade": 2,
-        "preco": 100.00
-      }
-    ],
-    "valorTotal": 200.00
-  }'
-
-# Listar pedidos consumidos
-curl http://localhost:8083/api/pedidos/kafka
-
-# Buscar pedido específico
-curl http://localhost:8083/api/pedidos/kafka/PED-12345
+```json
+{
+  "numeroPedido": "PED-12345",
+  "cliente": "Cliente A",
+  "produto": "Notebook",
+  "quantidade": 1,
+  "valorTotal": "3500.00"
+}
 ```
 
----
+### Notas Fiscais (`/api/notas`)
 
-## Testando o Fluxo Completo
+- `POST /api/notas`
+  - Cria nota fiscal e publica em `integrador.nota.recebido`.
+- `GET /api/notas/consumidas?limite=50`
+  - Lista notas fiscais processadas mantidas em memória.
+- `GET /api/notas/h2/find-all`
+  - Lista notas fiscais persistidas no H2.
 
-### Publicar uma mensagem de teste no Kafka
+Payload (`POST /api/notas`):
+
+```json
+{
+  "numeroNota": "NF-12345",
+  "cliente": "Cliente A",
+  "produto": "Notebook",
+  "quantidade": 1,
+  "valorTotal": "3500.00"
+}
+```
+
+### Reprocessamento (`/api/reprocessamento`)
+
+- `GET /api/reprocessamento/falhas?tipo=PEDIDO|NOTA&status=PENDENTE_REPROCESSAMENTO&limite=100`
+  - Lista falhas registradas para análise.
+- `POST /api/reprocessamento/falhas/{id}/reprocessar`
+  - Republica evento para tópico de entrada (`recebido`) e atualiza status.
+- `POST /api/reprocessamento/falhas/{id}/descartar`
+  - Marca falha como descartada (não reprocessar).
+
+Status possíveis de falha:
+
+- `PENDENTE_REPROCESSAMENTO`
+- `REPROCESSADO`
+- `ESGOTADO`
+- `DESCARTADO`
+
+## Teste rápido de fluxo Kafka
+
+Entrar no container Kafka:
 
 ```bash
-# Entrar no container do Kafka
 docker exec -it kafka bash
+```
 
-# Publicar uma mensagem no tópico de entrada
+Produzir evento genérico:
+
+```bash
 kafka-console-producer \
   --bootstrap-server localhost:9092 \
-  --topic entrada.evento
-
+  --topic integrador.evento.recebido
 ```
 
-### Verificar no tópico de saída
+Consumir saída processada:
 
 ```bash
 kafka-console-consumer \
   --bootstrap-server localhost:9092 \
-  --topic saida.evento \
+  --topic integrador.evento.processado \
   --from-beginning
 ```
 
----
-
-## Configurando Tópicos Personalizados
-
-No `application.yaml`, adicione:
-
-```yaml
-integrador:
-  topico:
-    entrada: meu-topico-entrada
-    saida: meu-topico-saida
-```
-
----
-
-## Grafana — Dashboard
-
-1. Acesse http://localhost:3000 (admin/admin)
-2. Vá em **Dashboards → kafka → kafka - Integrador**
-3. O dashboard já está pré-configurado com:
-   - Taxa de mensagens processadas (sucesso vs falha)
-   - Latência P50 / P95 / P99
-   - Estado dos Circuit Breakers
-   - Contagem de retries
-   - Logs em tempo real via Loki
-
----
-
-## Fluxo de Resiliência
-
-### Fluxo 1: Eventos Genéricos (entrada.evento → saida.evento)
-
-```
-Kafka (entrada.evento)
-        │
-        ▼
-KafkaConsumerAdapter
-  ├── Sucesso → ACK → segue fluxo
-  ├── Erro de dados → ACK + descarta (sem retry)
-  └── Erro de infra → sem ACK → Kafka reentrega
-        │
-        ▼ (após 3 falhas)
-KafkaConfig.ErrorHandler
-        │
-        └── entrada.evento.DLQ
-        │
-        ▼
-ProcessarEventoUseCase (orquestrador)
-  1. Valida
-  2. Transforma
-  3. Publica via KafkaProducerAdapter
-        │
-KafkaProducerAdapter
-  ├── Bulkhead → max 20 chamadas simultâneas
-  ├── CircuitBreaker → abre se 30% falhar
-  ├── Retry → 3-5 tentativas com backoff exponencial
-  └── Fallback → Outbox Pattern (TODO)
-        │
-        ▼
-Kafka (saida.evento)
-        │
-        ▼
-     Sistema B
-
----
-
-## Variáveis de Ambiente (Produção)
+Consumir retry:
 
 ```bash
-KAFKA_BROKERS=kafka1:9092,kafka2:9092,kafka3:9092
-LOKI_URL=http://loki:3100/loki/api/v1/push
-APP_ENV=prod
-SPRING_PROFILES_ACTIVE=prod
+kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic integrador.evento.retry \
+  --from-beginning
 ```
+
+Consumir DLQ:
+
+```bash
+kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic integrador.evento.dlq \
+  --from-beginning
+```
+
+## Configurações importantes
+
+Arquivo: `src/main/resources/application.yaml`
+
+- `server.port: 8082`
+- `spring.kafka.listener.ack-mode: manual_immediate`
+- `integrador.topico.*`: nomes dos tópicos
+- `integrador.reprocessamento.max-tentativas: 5`
+- `integrador.reprocessamento.intervalo-segundos: 60`
+- `integrador.historico.falhas.limite: 2000`
+
+## Observabilidade
+
+- Métricas: `/actuator/metrics` e `/actuator/prometheus`
+- Circuit breakers: `/actuator/circuitbreakers`
+- Retries: `/actuator/retries`
+- Logs centralizados: Loki (`LOKI_URL`)
+- Dashboard: import automático em Grafana via `docker/grafana/provisioning`
+
+## Produção (profile `prod`)
+
+Variáveis principais:
+
+- `SPRING_PROFILES_ACTIVE=prod`
+- `KAFKA_BROKERS=<brokers>`
+- `APP_ENV=prod`
+- `LOKI_URL=http://loki:3100/loki/api/v1/push`
+
+No profile `prod`, `show-details` do health é reduzido para não expor detalhes internos.
+
+## Estrutura de diretórios (resumo)
+
+```text
+src/main/java/com/integracao/kafka/
+  adapter/
+    controller/
+    dto/
+  application/
+    gateway/
+    metrics/
+    service/
+    useCase/
+  domain/
+    entity/
+    model/
+  frameworkDrivers/
+    config/
+    kafka/
+      consumer/
+      producer/
+```
+
+## Próximos incrementos recomendados
+
+- Persistir histórico de falhas em banco (hoje está em memória).
+- Implementar Outbox Pattern no fallback do producer.
+- Adicionar testes de integração Kafka com cenários de retry e DLQ.

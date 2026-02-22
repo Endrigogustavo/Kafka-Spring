@@ -28,8 +28,6 @@ import lombok.extern.slf4j.Slf4j;
 import com.integracao.kafka.domain.entity.PedidoEntity;
 import com.integracao.kafka.domain.model.Pedido;
 
-import java.util.List;
-
 @Slf4j
 @RestController
 @RequestMapping("/api/pedidos")
@@ -42,7 +40,7 @@ public class PedidoController {
     private final com.integracao.kafka.application.service.PedidoService pedidoService;
 
     @PostMapping
-    @Operation(summary = "Criar novo pedido", description = "Cria um pedido e publica no tópico Kafka 'entrada.pedido' para processamento")
+    @Operation(summary = "Criar novo pedido", description = "Cria um pedido e publica no tópico Kafka 'integrador.pedido.recebido' para processamento")
     public ResponseEntity<Map<String, Object>> criarPedido(@RequestBody PedidoDtoRequest pedido) {
         validarRequisicao(pedido);
         log.info("[API] Recebendo pedido | cliente={} produto={}", pedido.cliente(), pedido.produto());

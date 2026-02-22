@@ -38,7 +38,7 @@ public class NotaFiscalController {
 
 
     @PostMapping
-    @Operation(summary = "Criar nova nota fiscal", description = "Cria uma nota fiscal e publica no tópico Kafka 'entrada.nota' para processamento")
+    @Operation(summary = "Criar nova nota fiscal", description = "Cria uma nota fiscal e publica no tópico Kafka 'integrador.nota.recebido' para processamento")
     public ResponseEntity<Map<String, Object>> criarNotaFiscal(@RequestBody NotaDtoRequest nota) {
         validarRequisicao(nota);
         log.info("[API] Recebendo nota fiscal | cliente={} produto={}", nota.cliente(), nota.produto());

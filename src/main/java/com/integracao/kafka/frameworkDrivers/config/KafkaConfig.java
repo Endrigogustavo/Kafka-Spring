@@ -18,37 +18,46 @@ import lombok.extern.slf4j.Slf4j;
 @Configuration
 public class KafkaConfig {
 
-    @Value("${integrador.topico.entrada:entrada.evento}")
+    @Value("${integrador.topico.entrada:integrador.evento.recebido}")
     private String topicoEntrada;
 
-    @Value("${integrador.topico.saida:saida.evento}")
+    @Value("${integrador.topico.saida:integrador.evento.processado}")
     private String topicoSaida;
 
-    @Value("${integrador.topico.entrada-pedido:entrada.pedido}")
+    @Value("${integrador.topico.entrada-pedido:integrador.pedido.recebido}")
     private String topicoEntradaPedido;
 
-    @Value("${integrador.topico.saida-pedido:saida.pedido}")
+    @Value("${integrador.topico.saida-pedido:integrador.pedido.processado}")
     private String topicoSaidaPedido;
 
-    @Value("${integrador.topico.nota:entrada.nota}")
+    @Value("${integrador.topico.nota:integrador.nota.recebido}")
     private String topicoEntradaNota;
 
-    @Value("${integrador.topico.saida-nota:saida.nota}")
+    @Value("${integrador.topico.saida-nota:integrador.nota.processado}")
     private String topicoSaidaNota;
 
-    @Value("${integrador.topico.erro-evento:erro.evento}")
-    private String topicoErroEvento;
+    @Value("${integrador.topico.retry-evento:integrador.evento.retry}")
+    private String topicoRetryEvento;
 
-    @Value("${integrador.topico.erro-pedido:erro.pedido}")
-    private String topicoErroPedido;
+    @Value("${integrador.topico.retry-pedido:integrador.pedido.retry}")
+    private String topicoRetryPedido;
 
-    @Value("${integrador.topico.erro-nota:erro.nota}")
-    private String topicoErroNota;
+    @Value("${integrador.topico.retry-nota:integrador.nota.retry}")
+    private String topicoRetryNota;
+
+    @Value("${integrador.topico.dlq-evento:integrador.evento.dlq}")
+    private String topicoDlqEvento;
+
+    @Value("${integrador.topico.dlq-pedido:integrador.pedido.dlq}")
+    private String topicoDlqPedido;
+
+    @Value("${integrador.topico.dlq-nota:integrador.nota.dlq}")
+    private String topicoDlqNota;
 
     @Value("${integrador.topico.retencao-ms:604800000}")
     private long retencaoTopicosMs;
 
-    @Value("${integrador.topico.retencao-ms:60480000000}")
+    @Value("${integrador.topico.retencao-dlq-ms:60480000000}")
     private long retencaoTopicosErroMs;
 
     // ─── Criação automática de tópicos ───────────────────────────────────────
@@ -86,18 +95,33 @@ public class KafkaConfig {
     }
 
     @Bean
-    public NewTopic topicoErroEntrada() {
-        return criarTopicoErro(topicoErroEvento);
+    public NewTopic topicoRetryEvento() {
+        return criarTopicoErro(topicoRetryEvento);
     }
 
     @Bean
-    public NewTopic topicoErroPedido() {
-        return criarTopicoErro(topicoErroPedido);
+    public NewTopic topicoRetryPedido() {
+        return criarTopicoErro(topicoRetryPedido);
     }
 
     @Bean
-    public NewTopic topicoErroNota() {
-        return criarTopicoErro(topicoErroNota);
+    public NewTopic topicoRetryNota() {
+        return criarTopicoErro(topicoRetryNota);
+    }
+
+    @Bean
+    public NewTopic topicoDlqEvento() {
+        return criarTopicoErro(topicoDlqEvento);
+    }
+
+    @Bean
+    public NewTopic topicoDlqPedido() {
+        return criarTopicoErro(topicoDlqPedido);
+    }
+
+    @Bean
+    public NewTopic topicoDlqNota() {
+        return criarTopicoErro(topicoDlqNota);
     }
 
     private NewTopic criarTopicoPadrao(String nomeTopico) {
@@ -120,7 +144,7 @@ public class KafkaConfig {
     /**
      * Estratégia de erro:
      * 1. Tenta processar a mensagem com 3 tentativas, aguardando 1s entre cada
-     * 2. Após tentativas esgotadas, publica no tópico erro.<dominio>
+        * 2. Após tentativas esgotadas, publica no tópico integrador.<recurso>.retry
      * 3. O fluxo principal não é bloqueado
      */
     @Bean
@@ -128,10 +152,10 @@ public class KafkaConfig {
         // Recoverer: envia para o tópico de erro da mesma partição
         var recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
             (record, ex) -> {
-                String topicoErro = topicoErroProcessamento(record.topic());
-                log.error("[ERRO-PROCESSAMENTO] Mensagem enviada para tópico de erro | topico={} topicoErro={} erro={}",
-                    record.topic(), topicoErro, ex.getMessage());
-                return new TopicPartition(topicoErro, record.partition());
+                String topicoRetry = topicoRetryProcessamento(record.topic());
+                log.error("[ERRO-PROCESSAMENTO] Mensagem enviada para tópico de retry | topico={} topicoRetry={} erro={}",
+                    record.topic(), topicoRetry, ex.getMessage());
+                return new TopicPartition(topicoRetry, record.partition());
             });
 
         // BackOff: 2 tentativas com 500ms para reduzir latência total de recuperação
@@ -145,13 +169,13 @@ public class KafkaConfig {
         return handler;
     }
 
-    private String topicoErroProcessamento(String topicoOrigem) {
+    private String topicoRetryProcessamento(String topicoOrigem) {
         if (topicoEntradaPedido.equals(topicoOrigem)) {
-            return topicoErroPedido;
+            return topicoRetryPedido;
         }
         if (topicoEntradaNota.equals(topicoOrigem)) {
-            return topicoErroNota;
+            return topicoRetryNota;
         }
-        return topicoErroEvento;
+        return topicoRetryEvento;
     }
 }

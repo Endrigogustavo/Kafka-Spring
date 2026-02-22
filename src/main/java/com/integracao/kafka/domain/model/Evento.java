@@ -27,6 +27,9 @@ public class Evento {
 
     private StatusEvento status;
 
+    @Builder.Default
+    private Integer tentativasRetry = 0;
+
     public enum StatusEvento {
         RECEBIDO,
         PROCESSANDO,

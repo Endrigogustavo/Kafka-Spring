@@ -36,8 +36,8 @@ public class GerenciarFalhasUseCase {
 
     public GerenciarFalhasUseCase(
         PublicarEventoPort publicarEventoPort,
-        @Value("${integrador.topico.entrada-pedido:entrada.pedido}") String topicoEntradaPedido,
-        @Value("${integrador.topico.nota:entrada.nota}") String topicoEntradaNota,
+        @Value("${integrador.topico.entrada-pedido:integrador.pedido.recebido}") String topicoEntradaPedido,
+        @Value("${integrador.topico.nota:integrador.nota.recebido}") String topicoEntradaNota,
         @Value("${integrador.historico.falhas.limite:1000}") int limiteHistorico,
         @Value("${integrador.reprocessamento.max-tentativas:5}") int maxTentativasReprocessamento,
         @Value("${integrador.reprocessamento.intervalo-segundos:60}") int intervaloTentativaSegundos
