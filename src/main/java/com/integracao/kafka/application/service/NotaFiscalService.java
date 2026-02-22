@@ -9,9 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.integracao.kafka.application.repository.NotaFiscalRepository;
 import com.integracao.kafka.domain.entity.NotaFiscalEntity;
-import com.integracao.kafka.domain.entity.PedidoEntity;
 import com.integracao.kafka.domain.model.NotaFiscal;
-import com.integracao.kafka.domain.model.Pedido;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,8 +27,6 @@ public class NotaFiscalService {
     private long retryMaxIntervalMs;
 
      public NotaFiscalEntity criarNotaFiscalEntity(NotaFiscal notaFiscal) {
-         log.info("[SERVICE-NOTA-FISCAL] Iniciando persistencia de nota fiscal | numeroNota={} cliente={} produto={} quantidade={} valorTotal={}",
-            notaFiscal.getNumeroNota(), notaFiscal.getCliente(), notaFiscal.getProduto(), notaFiscal.getQuantidade(), notaFiscal.getValorTotal());
         log.info("[SERVICE-NOTA-FISCAL] Iniciando persistencia de nota fiscal | numeroNota={} cliente={} produto={} quantidade={} valorTotal={}",
             notaFiscal.getNumeroNota(), notaFiscal.getCliente(), notaFiscal.getProduto(), notaFiscal.getQuantidade(), notaFiscal.getValorTotal());
   

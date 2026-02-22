@@ -55,12 +55,15 @@ public class NotaFiscalConsumer {
             Evento eventoEntrada = record.value();
             NotaFiscal notaFiscal = objectMapper.convertValue(eventoEntrada.getPayload(), NotaFiscal.class);
 
-            notaFiscalService.criarNotaFiscalEntity(notaFiscal);
-            log.info("[CONSUMER-NOTA] Nota fiscal enviada para persistencia no banco | numero={} cliente={} produto={} topico={} particao={} offset={}",
-                notaFiscal.getNumeroNota(), notaFiscal.getCliente(), notaFiscal.getProduto(), topico, partition, offset);
             if (notaFiscal.getNumeroNota() == null || notaFiscal.getNumeroNota().isBlank()) {
                 throw new IllegalArgumentException("Nota fiscal sem numeroNota no payload");
             }
+
+            log.info("[CONSUMER-NOTA] Enviando nota fiscal para persistencia no banco | numero={} cliente={} produto={} topico={} particao={} offset={}",
+                notaFiscal.getNumeroNota(), notaFiscal.getCliente(), notaFiscal.getProduto(), topico, partition, offset);
+            notaFiscalService.criarNotaFiscalEntity(notaFiscal);
+            log.info("[CONSUMER-NOTA] Persistencia de nota fiscal concluida no banco | numero={} topico={} particao={} offset={}",
+                notaFiscal.getNumeroNota(), topico, partition, offset);
 
             notaFiscal.setDataProcessamento(java.time.LocalDateTime.now());
             notaFiscal.setStatusProcessamento("PROCESSADO");
