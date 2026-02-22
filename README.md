@@ -266,4 +266,3 @@ src/main/java/com/integracao/kafka/
 
 - Persistir histórico de falhas em banco (hoje está em memória).
 - Implementar Outbox Pattern no fallback do producer.
-- Adicionar testes de integração Kafka com cenários de retry e DLQ.
