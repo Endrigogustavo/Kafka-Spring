@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.integracao.kafka.adapter.dto.request.PedidoDtoRequest;
 import com.integracao.kafka.application.useCase.publish.PublicarPedidoUseCase;
 import com.integracao.kafka.application.useCase.subscribe.ReceberPedidoUseCase;
-import com.integracao.kafka.domain.model.Pedido;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import com.integracao.kafka.domain.entity.PedidoEntity;
+import com.integracao.kafka.domain.model.Pedido;
+
 import java.util.List;
 
 @Slf4j

@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
-import com.integracao.kafka.adapter.repository.iRepository.PedidoRepository;
+import com.integracao.kafka.application.repository.PedidoRepository;
 import com.integracao.kafka.domain.entity.PedidoEntity;
 import com.integracao.kafka.domain.model.Pedido;
 

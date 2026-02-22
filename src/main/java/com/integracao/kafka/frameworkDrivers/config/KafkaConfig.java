@@ -2,6 +2,7 @@ package com.integracao.kafka.frameworkDrivers.config;
 
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.config.TopicConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -44,88 +45,82 @@ public class KafkaConfig {
     @Value("${integrador.topico.erro-nota:erro.nota}")
     private String topicoErroNota;
 
+    @Value("${integrador.topico.retencao-ms:604800000}")
+    private long retencaoTopicosMs;
+
+    @Value("${integrador.topico.retencao-ms:60480000000}")
+    private long retencaoTopicosErroMs;
+
     // ─── Criação automática de tópicos ───────────────────────────────────────
 
     @Bean
     public NewTopic topicoEntrada() {
-        return TopicBuilder.name(topicoEntrada)
-            .partitions(3)   // paralelismo
-            .replicas(1)     // aumente para 3 em produção com cluster
-            .build();
+        return criarTopicoPadrao(topicoEntrada);
     }
 
     
 
     @Bean
     public NewTopic topicoEntradaNota() {
-        return TopicBuilder.name(topicoEntradaNota)
-            .partitions(3)
-            .replicas(1)
-            .build();
+        return criarTopicoPadrao(topicoEntradaNota);
     }
 
     @Bean
     public NewTopic topicoSaidaNota() {
-        return TopicBuilder.name(topicoSaidaNota)
-            .partitions(3)
-            .replicas(1)
-            .build();
+        return criarTopicoPadrao(topicoSaidaNota);
     }
 
     @Bean
     public NewTopic topicoSaida() {
-        return TopicBuilder.name(topicoSaida)
-            .partitions(3)
-            .replicas(1)
-            .build();
+        return criarTopicoPadrao(topicoSaida);
     }
 
     @Bean
     public NewTopic topicoEntradaPedido() {
-        return TopicBuilder.name(topicoEntradaPedido)
-            .partitions(3)
-            .replicas(1)
-            .build();
+        return criarTopicoPadrao(topicoEntradaPedido);
     }
 
     @Bean
     public NewTopic topicoSaidaPedido() {
-        return TopicBuilder.name(topicoSaidaPedido)
-            .partitions(3)
-            .replicas(1)
-            .build();
+        return criarTopicoPadrao(topicoSaidaPedido);
     }
 
     @Bean
     public NewTopic topicoErroEntrada() {
-        return TopicBuilder.name(topicoErroEvento)
-            .partitions(3)
-            .replicas(1)
-            .build();
+        return criarTopicoErro(topicoErroEvento);
     }
 
     @Bean
     public NewTopic topicoErroPedido() {
-        return TopicBuilder.name(topicoErroPedido)
-            .partitions(3)
-            .replicas(1)
-            .build();
+        return criarTopicoErro(topicoErroPedido);
     }
 
     @Bean
     public NewTopic topicoErroNota() {
-        return TopicBuilder.name(topicoErroNota)
+        return criarTopicoErro(topicoErroNota);
+    }
+
+    private NewTopic criarTopicoPadrao(String nomeTopico) {
+        return TopicBuilder.name(nomeTopico)
             .partitions(3)
             .replicas(1)
+            .config(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(retencaoTopicosMs))
             .build();
     }
 
-    // ─── Error Handler com tópico de erro de processamento ───────────────────
+    private NewTopic criarTopicoErro(String nomeTopico) {
+        return TopicBuilder.name(nomeTopico)
+            .partitions(3)
+            .replicas(1)
+            .config(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(retencaoTopicosErroMs))
+            .build();
+    }
+
 
     /**
      * Estratégia de erro:
      * 1. Tenta processar a mensagem com 3 tentativas, aguardando 1s entre cada
-        * 2. Após tentativas esgotadas, publica no tópico erro.<dominio>
+     * 2. Após tentativas esgotadas, publica no tópico erro.<dominio>
      * 3. O fluxo principal não é bloqueado
      */
     @Bean

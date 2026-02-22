@@ -61,6 +61,7 @@ integrador:
     retry-interval-ms: 5000
     retry-max-interval-ms: 30000
   topico:
+    retencao-ms: 604800000  # 7 dias em milissegundos
     erro-evento: erro.evento
     erro-pedido: erro.pedido
     erro-nota: erro.nota
@@ -184,11 +185,9 @@ logging:
     org.apache.kafka: WARN          # Reduz verbosidade do Kafka
     org.springframework.kafka: INFO
 
-# ============================================================
 #  SERVIDOR
-# ============================================================
 server:
-  port: 8083
+  port: 8082
   tomcat:
     max-threads: 50
 
@@ -199,9 +198,7 @@ springdoc:
     path: /swagger-ui.html
     try-it-out-enabled: true
 
-# ============================================================
 #  PROFILES (sobrescreva por ambiente)
-# ============================================================
 ---
 spring:
   config:

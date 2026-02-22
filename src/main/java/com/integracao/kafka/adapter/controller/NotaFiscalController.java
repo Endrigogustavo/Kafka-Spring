@@ -13,7 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.integracao.kafka.adapter.dto.request.NotaDtoRequest; 
+import com.integracao.kafka.adapter.dto.request.NotaDtoRequest;
+import com.integracao.kafka.application.service.NotaFiscalService;
+import com.integracao.kafka.domain.entity.NotaFiscalEntity;
 import com.integracao.kafka.application.useCase.publish.PublicarNotaFiscalUseCase;
 import com.integracao.kafka.application.useCase.subscribe.ReceberNotaUseCase;
 import com.integracao.kafka.domain.model.NotaFiscal;
@@ -32,6 +34,7 @@ public class NotaFiscalController {
 
     private final PublicarNotaFiscalUseCase criarNotaFiscalUseCase;
     private final ReceberNotaUseCase receberNotaUseCase;
+    private final NotaFiscalService notaFiscalService;
 
 
     @PostMapping
@@ -98,4 +101,9 @@ public class NotaFiscalController {
         }
     }
     
+    @GetMapping("/h2/find-all")
+    @Operation(summary = "Buscar todas as notas fiscais", description = "Retorna todas as notas fiscais cadastradas no sistema (dados persistidos no H2)")
+    public ResponseEntity<List<NotaFiscalEntity>> findAllNotaFiscal() {
+        return ResponseEntity.ok(notaFiscalService.listarNotasFiscais());   
+    }
 }
