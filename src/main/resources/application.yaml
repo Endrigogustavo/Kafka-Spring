@@ -1,6 +1,17 @@
 spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
   application:
-    name: kafka-integrador
+    name: kafka-integrador    
 
   #  APACHE KAFKA
   kafka:
@@ -14,12 +25,14 @@ spring:
       retries: 3                 # Tentativas em caso de falha na publicacao
       properties:
         enable.idempotence: true # Evita mensagens duplicadas no broker
-        max.in.flight.requests.per.connection: 1
+        max.in.flight.requests.per.connection: 5
         delivery.timeout.ms: 30000      # Timeout total para envio (30s ao invés de 120s)
         request.timeout.ms: 10000       # Timeout por requisição (10s)
         max.block.ms: 15000             # Tempo max de bloqueio ao enviar (15s)
-        linger.ms: 10                   # Aguarda 10ms para agrupar mensagens (melhor throughput)
-        batch.size: 16384               # Tamanho do batch em bytes
+        linger.ms: 5                    # Menor latencia sem perder batching
+        batch.size: 65536               # Mais throughput em lote
+        compression.type: lz4           # Melhor custo/benefício de CPU x rede
+        buffer.memory: 67108864         # Buffer maior para picos de tráfego
 
     # --- Consumidor ---
     consumer:
@@ -31,12 +44,43 @@ spring:
       properties:
         spring.json.trusted.packages: "com.integracao.kafka.*"
         isolation.level: read_committed  # Le apenas mensagens de transacoes confirmadas
+        max.poll.records: 500
+        fetch.min.bytes: 1024
+        fetch.max.wait.ms: 100
+        max.poll.interval.ms: 3600000
+        session.timeout.ms: 15000
 
     # --- Listener ---
     listener:
       ack-mode: manual_immediate  # ACK manual para garantir at-least-once delivery
-      concurrency: 3              # Threads paralelas por listener
+      concurrency: 6              # Threads paralelas por listener
       missing-topics-fatal: false # Nao falha na inicializacao se topico nao existir
+
+integrador:
+  persistencia:
+    retry-interval-ms: 5000
+    retry-max-interval-ms: 30000
+  topico:
+    retencao-ms: 604800000  # 7 dias em milissegundos
+    retencao-dlq-ms: 60480000000
+    entrada: integrador.evento.recebido
+    saida: integrador.evento.processado
+    entrada-pedido: integrador.pedido.recebido
+    saida-pedido: integrador.pedido.processado
+    nota: integrador.nota.recebido
+    saida-nota: integrador.nota.processado
+    retry-evento: integrador.evento.retry
+    retry-pedido: integrador.pedido.retry
+    retry-nota: integrador.nota.retry
+    dlq-evento: integrador.evento.dlq
+    dlq-pedido: integrador.pedido.dlq
+    dlq-nota: integrador.nota.dlq
+  historico:
+    falhas:
+      limite: 2000
+  reprocessamento:
+    max-tentativas: 5
+    intervalo-segundos: 60
 
 #  RESILIENCE4J 
 resilience4j:
@@ -151,11 +195,9 @@ logging:
     org.apache.kafka: WARN          # Reduz verbosidade do Kafka
     org.springframework.kafka: INFO
 
-# ============================================================
 #  SERVIDOR
-# ============================================================
 server:
-  port: 8083
+  port: 8082
   tomcat:
     max-threads: 50
 
@@ -166,9 +208,7 @@ springdoc:
     path: /swagger-ui.html
     try-it-out-enabled: true
 
-# ============================================================
 #  PROFILES (sobrescreva por ambiente)
-# ============================================================
 ---
 spring:
   config:

@@ -1,18 +1,24 @@
 package com.integracao.kafka.adapter.controller;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.integracao.kafka.adapter.dto.request.NotaDtoRequest; 
+import com.integracao.kafka.adapter.dto.request.NotaDtoRequest;
+import com.integracao.kafka.application.service.NotaFiscalService;
+import com.integracao.kafka.domain.entity.NotaFiscalEntity;
 import com.integracao.kafka.application.useCase.publish.PublicarNotaFiscalUseCase;
-import com.integracao.kafka.domain.entity.NotaFiscal; 
+import com.integracao.kafka.application.useCase.subscribe.ReceberNotaUseCase;
+import com.integracao.kafka.domain.model.NotaFiscal;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,10 +33,12 @@ import lombok.extern.slf4j.Slf4j;
 public class NotaFiscalController {
 
     private final PublicarNotaFiscalUseCase criarNotaFiscalUseCase;
+    private final ReceberNotaUseCase receberNotaUseCase;
+    private final NotaFiscalService notaFiscalService;
 
 
     @PostMapping
-    @Operation(summary = "Criar nova nota fiscal", description = "Cria uma nota fiscal e publica no tópico Kafka 'entrada.nota' para processamento")
+    @Operation(summary = "Criar nova nota fiscal", description = "Cria uma nota fiscal e publica no tópico Kafka 'integrador.nota.recebido' para processamento")
     public ResponseEntity<Map<String, Object>> criarNotaFiscal(@RequestBody NotaDtoRequest nota) {
         validarRequisicao(nota);
         log.info("[API] Recebendo nota fiscal | cliente={} produto={}", nota.cliente(), nota.produto());
@@ -70,6 +78,12 @@ public class NotaFiscalController {
         }
     }
 
+    @GetMapping("/consumidas")
+    @Operation(summary = "Listar notas consumidas", description = "Retorna as últimas notas fiscais processadas pelo consumer")
+    public ResponseEntity<List<NotaFiscal>> listarNotasConsumidas(@RequestParam(defaultValue = "50") int limite) {
+        return ResponseEntity.ok(receberNotaUseCase.listarUltimas(limite));
+    }
+
     private void validarRequisicao(NotaDtoRequest nota) {
         if (nota == null) {
             throw new IllegalArgumentException("Corpo da requisição é obrigatório");
@@ -87,4 +101,9 @@ public class NotaFiscalController {
         }
     }
     
+    @GetMapping("/h2/find-all")
+    @Operation(summary = "Buscar todas as notas fiscais", description = "Retorna todas as notas fiscais cadastradas no sistema (dados persistidos no H2)")
+    public ResponseEntity<List<NotaFiscalEntity>> findAllNotaFiscal() {
+        return ResponseEntity.ok(notaFiscalService.listarNotasFiscais());   
+    }
 }

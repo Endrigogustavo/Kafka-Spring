@@ -1,4 +1,4 @@
-package com.integracao.kafka.domain.entity;
+package com.integracao.kafka.domain.model;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -26,6 +26,9 @@ public class Evento {
     private LocalDateTime criadoEm = LocalDateTime.now();
 
     private StatusEvento status;
+
+    @Builder.Default
+    private Integer tentativasRetry = 0;
 
     public enum StatusEvento {
         RECEBIDO,

@@ -2,16 +2,13 @@ package com.integracao.kafka.application.useCase.publish;
 
 import java.util.UUID;
 
-import javax.print.attribute.standard.MediaSize;
-
 import org.springframework.stereotype.Service;
 
 import com.integracao.kafka.application.gateway.in.PublicarNotaPort;
 import com.integracao.kafka.application.gateway.out.PublicarEventoPort;
 import com.integracao.kafka.application.metrics.IntegradorMetrics;
-import com.integracao.kafka.domain.entity.Evento;
-import com.integracao.kafka.domain.entity.NotaFiscal;
-import com.integracao.kafka.domain.entity.Pedido;
+import com.integracao.kafka.domain.model.Evento;
+import com.integracao.kafka.domain.model.NotaFiscal;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +20,7 @@ public class PublicarNotaFiscalUseCase implements PublicarNotaPort {
   private final PublicarEventoPort publicarEventoPort;
     private final IntegradorMetrics metrics;
     
-    private static final String TOPICO_ENTRADA_NOTA_FISCAL = "entrada.nota";
+    private static final String TOPICO_ENTRADA_NOTA_FISCAL = "integrador.nota.recebido";
 
     @Override
     public String executar(NotaFiscal notaFiscal) {

@@ -6,8 +6,8 @@ import org.springframework.stereotype.Service;
 import com.integracao.kafka.application.gateway.in.ProcessarEventoPort;
 import com.integracao.kafka.application.gateway.out.PublicarEventoPort;
 import com.integracao.kafka.application.metrics.IntegradorMetrics;
-import com.integracao.kafka.domain.entity.Evento;
-import com.integracao.kafka.domain.entity.Evento.StatusEvento;
+import com.integracao.kafka.domain.model.Evento;
+import com.integracao.kafka.domain.model.Evento.StatusEvento;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +32,7 @@ public class ProcessarEventoUseCase implements ProcessarEventoPort {
     private final PublicarEventoPort publicarEventoPort;
     private final IntegradorMetrics  metrics;
 
-    @Value("${integrador.topico.saida:saida.evento}")
+    @Value("${integrador.topico.saida:integrador.evento.processado}")
     private String topicoSaida;
 
     @Override
